@@ -430,11 +430,11 @@ registerForEvent("onDraw", function()
     for index, item in ipairs(items) do
       if itemFilter == "" or item.label:lower():find(itemFilter:lower(), 1, true) then
         if ImGui.Selectable(item.label .. "##item" .. index, selected == index) and selected ~= index then
-          selected, choices = index, {}
+          selected = index
           clearResult()
           refreshEquippedBonuses()
           resetObservation()
-          say("Selected " .. item.label .. ". Choose bonuses or filter them first.")
+          say("Selected " .. item.label .. ". Kept " .. #choices .. " selected bonus(es); find a new roll for this item.")
         end
       end
     end
