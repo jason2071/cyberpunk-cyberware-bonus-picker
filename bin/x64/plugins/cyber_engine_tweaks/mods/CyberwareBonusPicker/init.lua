@@ -6,11 +6,11 @@ local items, selected, choices = {}, 1, {}
 local itemFilter, bonusFilter = "", ""
 local overlayOpen, running, verifying = false, false, false
 local foundSeed, foundValues, foundBonuses, beforeValues, afterValues = nil, nil, nil, nil, nil
-local nextSeed, scanEnd, scanStart = 0, 0, 0
-local batch, windowSize, hardLimit, seedLimitInput = 40, 60000, 100000, 100000
+local nextSeed = 0
+local batch, hardLimit, seedLimitInput = 40, 100000, 100000
 local target, bestSeed, bestValues, bestScore = nil, nil, nil, -1
 local matches, minimums, maximums = 0, nil, nil
-local verifyFrames, rollCursors = 0, {}
+local verifyFrames = 0
 local rankingMode = "priority"
 local status = "Load a save, then refresh equipped Cyberware."
 local currentValues, valuesChanged
@@ -22,22 +22,6 @@ local beforeFingerprint = nil
 local function say(message)
   status = message
   print("[CyberwareBonusPicker] " .. message)
-end
-
-local function loadCursors()
-  local file = io.open("roll_cursor.json", "r")
-  if not file then return end
-  local contents = file:read("*a")
-  file:close()
-  local ok, saved = pcall(function() return json.decode(contents) end)
-  if ok and type(saved) == "table" then rollCursors = saved end
-end
-
-local function saveCursors()
-  local ok, encoded = pcall(function() return json.encode(rollCursors) end)
-  if not ok then return end
-  local file = io.open("roll_cursor.json", "w")
-  if file then file:write(encoded); file:close() end
 end
 
 local function loadSettings()
@@ -75,17 +59,6 @@ local function clearResult()
   target, bestSeed, bestValues, bestScore = nil, nil, nil, -1
   matches, minimums, maximums = 0, nil, nil
   beforeFingerprint = nil
-end
-
-local function changeRankingMode(mode)
-  if running or verifying then
-    say("Stop the current operation before changing the ranking mode.")
-  elseif rankingMode ~= mode then
-    rankingMode = mode
-    clearResult()
-    saveSettings()
-    say("Ranking mode: " .. (mode == "priority" and "Priority (new)." or "Product (old)."))
-  end
 end
 
 local function refreshEquippedBonuses()
@@ -218,8 +191,15 @@ local function observeBatch()
   end
 end
 
-local function selectionKey(item)
-  return tostring(item.area) .. ":" .. tostring(item.slot) .. ":" .. item.label .. ":" .. table.concat(choices, ",") .. ":" .. (#choices == 1 and "focus" or rankingMode .. "-v1") .. ":" .. tostring(hardLimit)
+local function changeRankingMode(mode)
+  if running or verifying then
+    say("Stop the current operation before changing the ranking mode.")
+  elseif rankingMode ~= mode then
+    rankingMode = mode
+    saveSettings()
+    clearResult()
+    say("Ranking mode set to " .. (mode == "priority" and "Priority." or "Product."))
+  end
 end
 
 local function startSearch()
@@ -231,16 +211,9 @@ local function startSearch()
     return
   end
   clearResult()
-  local key = selectionKey(item)
   local focusMode = #choices == 1
-  nextSeed = focusMode and 0 or (tonumber(rollCursors[key]) or -1) + 1
-  if nextSeed >= hardLimit then
-    say("Search limit reached for this item and bonus set.")
-    return
-  end
-  target = {area=item.area, slot=item.slot, key=key, mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), ranking=rankingMode, choices={choices[1], choices[2], choices[3]}}
-  scanStart = nextSeed
-  scanEnd = focusMode and hardLimit or math.min(nextSeed + windowSize, hardLimit)
+  nextSeed = 0
+  target = {area=item.area, slot=item.slot, mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), ranking=rankingMode, choices={choices[1], choices[2], choices[3]}}
   running = true
   say(focusMode and ("Finding the highest " .. bonuses[choices[1] + 1] .. " within " .. hardLimit .. " seeds.") or ("Searching vanilla rolls for " .. item.label .. "."))
 end
@@ -289,7 +262,7 @@ local function scanBatch()
   if not running or not target then return end
   local player = Game.GetPlayer()
   if not player then running = false; say("Load a save first."); return end
-  local last = math.min(nextSeed + (target.mode == "focus" and 80 or batch), scanEnd)
+  local last = math.min(nextSeed + (target.mode == "focus" and 80 or batch), hardLimit)
   local ok, failure = pcall(function()
     if target.mode == "focus" then
       local result = player:CBPFindBestOne(target.area, target.slot, target.choices[1], nextSeed, last - nextSeed)
@@ -340,7 +313,7 @@ local function scanBatch()
   end)
   if not ok then running = false; say("Search failed: " .. tostring(failure)); return end
   nextSeed = last
-  if nextSeed < scanEnd then return end
+  if nextSeed < hardLimit then return end
   if bestSeed then
     running, foundSeed = false, bestSeed
     if target.mode ~= "triple" then
@@ -352,26 +325,17 @@ local function scanBatch()
     end
     local readOk, current = pcall(function() return currentValues(player) end)
     if readOk then beforeValues = current end
-    if target.mode ~= "focus" then
-      rollCursors[target.key] = scanEnd - 1
-      saveCursors()
-    end
     if target.mode == "focus" then
       say("Highest " .. bonuses[target.choices[1] + 1] .. " found within " .. hardLimit .. " seeds. Check the game tooltip after Apply.")
     elseif target.mode == "pair" then
-      say("Best of " .. tostring(matches) .. " matching two-bonus rolls in this range. Review the third bonus before Apply.")
+      say("Best of " .. tostring(matches) .. " matching two-bonus rolls within " .. hardLimit .. " seeds. Review the third bonus before Apply.")
     elseif beforeValues and valuesChanged(beforeValues, foundValues) then
       say("Best of " .. tostring(matches) .. " matching rolls. Compare the equipped values before Apply.")
     else
-      say("Best matching roll has the same raw values as the equipped item in this range.")
+      say("Best matching roll has the same raw values as the equipped item within this seed limit.")
     end
-  elseif scanEnd < hardLimit then
-    scanEnd = math.min(scanEnd + windowSize, hardLimit)
-    say("No matching roll yet. Continuing search automatically.")
   else
     running = false
-    rollCursors[target.key] = scanEnd - 1
-    saveCursors()
     say("No matching roll found within the search limit. Try another bonus set.")
   end
 end
@@ -447,7 +411,7 @@ local function verifyApply()
   end
 end
 
-registerForEvent("onInit", function() loadCursors(); loadSettings(); say("Ready. Open CET and refresh Cyberware.") end)
+registerForEvent("onInit", function() loadSettings(); say("Ready. Open CET and refresh Cyberware.") end)
 registerForEvent("onOverlayOpen", function() overlayOpen = true end)
 registerForEvent("onOverlayClose", function() overlayOpen = false end)
 
@@ -483,10 +447,10 @@ registerForEvent("onDraw", function()
     ImGui.SameLine()
     ImGui.BeginGroup()
     ImGui.Text("Bonuses (" .. #choices .. " selected)")
-    ImGui.Text("Ranking: " .. (rankingMode == "priority" and "Priority (new)" or "Product (old)"))
-    if ImGui.Button((rankingMode == "priority" and "[Selected] " or "") .. "Priority (new)") then changeRankingMode("priority") end
+    ImGui.Text("Ranking")
+    if ImGui.RadioButton("Priority", rankingMode == "priority") then changeRankingMode("priority") end
     ImGui.SameLine()
-    if ImGui.Button((rankingMode == "product" and "[Selected] " or "") .. "Product (old)") then changeRankingMode("product") end
+    if ImGui.RadioButton("Product", rankingMode == "product") then changeRankingMode("product") end
     if ImGui.Button(analyzing and "Filtering bonuses..." or "Filter compatible bonuses") and not analyzing then
       if running or verifying then
         say("Stop the current operation before filtering bonuses.")
@@ -550,7 +514,7 @@ registerForEvent("onDraw", function()
         hardLimit = math.max(1000, math.min(1000000, math.floor(tonumber(seedLimitInput) or hardLimit)))
         seedLimitInput = hardLimit
         clearResult()
-        say("Seed limit set to " .. hardLimit .. ". The next search uses this limit.")
+        say("Seed limit set to " .. hardLimit .. ". The next search scans from seed 0.")
       end
     end
     if running then
@@ -560,7 +524,7 @@ registerForEvent("onDraw", function()
         say("Search stopped. No item changed.")
       end
     elseif not verifying then
-      local searchLabel = #choices == 1 and "Find highest focus bonus" or (foundSeed and "Find another best roll" or "Find best roll")
+      local searchLabel = #choices == 1 and "Find highest focus bonus" or "Find best roll"
       if ImGui.Button(searchLabel) then startSearch() end
     end
 

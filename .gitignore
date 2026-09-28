@@ -2,6 +2,7 @@
 *.log
 *.redscripts
 roll_cursor.json
+picker_settings.json
 compile_cache/
 __pycache__/
 .DS_Store
