@@ -104,8 +104,9 @@ local function startObservation()
 end
 
 local function refresh()
+  local previous = items[selected]
   clearResult()
-  items, selected, choices = {}, 1, {}
+  items, selected = {}, 1
   local player = Game.GetPlayer()
   if not player then say("Load a save first."); return end
   for area = 0, #areas - 1 do
@@ -114,6 +115,11 @@ local function refresh()
       if ok and name and name ~= "" then
         items[#items + 1] = {area=area, slot=slot, label=areas[area + 1] .. " / " .. englishItemName(name)}
       end
+    end
+  end
+  if previous then
+    for index, item in ipairs(items) do
+      if item.area == previous.area and item.slot == previous.slot then selected = index; break end
     end
   end
   resetObservation()
@@ -210,6 +216,8 @@ local function startSearch()
     say("This bonus combination was not seen on this item. Untick one bonus.")
     return
   end
+  hardLimit = math.max(1000, math.min(1000000, math.floor(tonumber(seedLimitInput) or hardLimit)))
+  seedLimitInput = hardLimit
   clearResult()
   local focusMode = #choices == 1
   nextSeed = 0
@@ -411,8 +419,11 @@ local function verifyApply()
   end
 end
 
-registerForEvent("onInit", function() loadSettings(); say("Ready. Open CET and refresh Cyberware.") end)
-registerForEvent("onOverlayOpen", function() overlayOpen = true end)
+registerForEvent("onInit", function() loadSettings(); say("Ready. Open CET to pick Cyberware.") end)
+registerForEvent("onOverlayOpen", function()
+  overlayOpen = true
+  if #items == 0 and Game.GetPlayer() then refresh() end
+end)
 registerForEvent("onOverlayClose", function() overlayOpen = false end)
 
 registerForEvent("onDraw", function()
@@ -420,13 +431,14 @@ registerForEvent("onDraw", function()
   observeBatch()
   scanBatch()
   verifyApply()
-  ImGui.SetNextWindowSize(1750, 860, ImGuiCond.Always)
+  ImGui.SetNextWindowSize(1750, 820, ImGuiCond.Always)
   if not ImGui.Begin("Cyberware Bonus Picker") then ImGui.End(); return end
   ImGui.Text(status)
-  if ImGui.Button("Refresh items") then refresh() end
   if #items > 0 then
     ImGui.BeginGroup()
     ImGui.Text("Cyberware")
+    ImGui.SameLine()
+    if ImGui.Button("Refresh##items") then refresh() end
     ImGui.SetNextItemWidth(420)
     itemFilter, _ = ImGui.InputTextWithHint("##itemSearch", "Search equipped item", itemFilter, 128)
     ImGui.BeginChild("##itemList", 420, 600, true)
@@ -446,21 +458,22 @@ registerForEvent("onDraw", function()
 
     ImGui.SameLine()
     ImGui.BeginGroup()
-    ImGui.Text("Bonuses (" .. #choices .. " selected)")
-    ImGui.Text("Ranking")
+    ImGui.Text("Bonuses (" .. #choices .. "/3)")
+    ImGui.SameLine()
+    ImGui.Text("Rank")
+    ImGui.SameLine()
     if ImGui.RadioButton("Priority", rankingMode == "priority") then changeRankingMode("priority") end
     ImGui.SameLine()
     if ImGui.RadioButton("Product", rankingMode == "product") then changeRankingMode("product") end
-    if ImGui.Button(analyzing and "Filtering bonuses..." or "Filter compatible bonuses") and not analyzing then
+    local filterLabel = analyzing and ("Filtering " .. sampledSeeds .. "/" .. sampleLimit)
+      or (observedCount > 0 and ("Filter again (" .. observedCount .. " types)") or "Filter bonuses")
+    if ImGui.Button(filterLabel) and not analyzing then
       if running or verifying then
         say("Stop the current operation before filtering bonuses.")
       else
         startObservation()
       end
     end
-    ImGui.Text(analyzing and ("Checking bonus groups: " .. sampledSeeds .. "/" .. sampleLimit)
-      or (observedCount > 0 and ("Filter ready: " .. observedCount .. " types") or "Filter optional; all bonuses shown."))
-    if #choices == 3 then ImGui.Text("Untick one bonus to choose another.") end
     ImGui.Text("Selected:")
     for i = 1, 3 do
       ImGui.Text(i .. ". " .. (choices[i] and bonuses[choices[i] + 1] or (i == 1 and "--" or "Any bonus")))
@@ -494,7 +507,8 @@ registerForEvent("onDraw", function()
     ImGui.SameLine()
     ImGui.BeginChild("##resultPane", 630, 665, true)
     ImGui.Text("Current item")
-    if ImGui.Button("Refresh current bonuses") then refreshEquippedBonuses() end
+    ImGui.SameLine()
+    if ImGui.Button("Refresh##current") then refreshEquippedBonuses() end
     if #equippedBonuses == 0 then
       ImGui.Text("No positive shard bonuses read. Check the game tooltip.")
     else
@@ -504,28 +518,18 @@ registerForEvent("onDraw", function()
     end
     ImGui.Separator()
     ImGui.Text("Candidate roll")
-    ImGui.Text("Search up to " .. hardLimit .. " seeds (default 100000)")
+    ImGui.Text("Seeds (1000-1000000)")
+    ImGui.SetNextItemWidth(220)
     seedLimitInput, _ = ImGui.InputInt("##seedLimit", seedLimitInput, 10000, 50000)
     ImGui.SameLine()
-    if ImGui.Button("Set limit") then
-      if running or verifying then
-        say("Finish or stop the current operation before changing the seed limit.")
-      else
-        hardLimit = math.max(1000, math.min(1000000, math.floor(tonumber(seedLimitInput) or hardLimit)))
-        seedLimitInput = hardLimit
-        clearResult()
-        say("Seed limit set to " .. hardLimit .. ". The next search scans from seed 0.")
-      end
-    end
     if running then
-      ImGui.Text("Searching seed " .. nextSeed .. " / " .. hardLimit .. "  |  matches " .. matches)
       if ImGui.Button("Stop") then
         running = false
         say("Search stopped. No item changed.")
       end
+      ImGui.Text("Seed " .. nextSeed .. "/" .. hardLimit .. "  |  " .. matches .. " matches")
     elseif not verifying then
-      local searchLabel = #choices == 1 and "Find highest focus bonus" or "Find best roll"
-      if ImGui.Button(searchLabel) then startSearch() end
+      if ImGui.Button("Search") then startSearch() end
     end
 
     if foundSeed and foundValues then
@@ -558,6 +562,8 @@ registerForEvent("onDraw", function()
       ImGui.Text("Select one, two, or three bonuses, then search.")
     end
     ImGui.EndChild()
+  else
+    if ImGui.Button("Refresh items") then refresh() end
   end
   ImGui.End()
 end)
