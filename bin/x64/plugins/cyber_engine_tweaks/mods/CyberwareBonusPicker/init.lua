@@ -30,13 +30,18 @@ local function loadSettings()
   local contents = file:read("*a")
   file:close()
   local ok, saved = pcall(function() return json.decode(contents) end)
-  if ok and type(saved) == "table" and (saved.rankingMode == "priority" or saved.rankingMode == "product") then
-    rankingMode = saved.rankingMode
+  if ok and type(saved) == "table" then
+    if saved.rankingMode == "priority" or saved.rankingMode == "product" then
+      rankingMode = saved.rankingMode
+    end
+    if type(saved.seedLimit) == "number" and saved.seedLimit == math.floor(saved.seedLimit) then
+      seedLimitInput = saved.seedLimit
+    end
   end
 end
 
 local function saveSettings()
-  local ok, encoded = pcall(function() return json.encode({rankingMode=rankingMode}) end)
+  local ok, encoded = pcall(function() return json.encode({rankingMode=rankingMode, seedLimit=seedLimitInput}) end)
   if not ok then return end
   local file = io.open("picker_settings.json", "w")
   if file then file:write(encoded); file:close() end
@@ -216,8 +221,12 @@ local function startSearch()
     say("This bonus combination was not seen on this item. Untick one bonus.")
     return
   end
-  hardLimit = math.max(1000, math.min(1000000, math.floor(tonumber(seedLimitInput) or hardLimit)))
-  seedLimitInput = hardLimit
+  local requestedLimit = tonumber(seedLimitInput)
+  if not requestedLimit or requestedLimit < 1 or requestedLimit > 1000000 then
+    say("Enter a seed limit from 1 to 1000000.")
+    return
+  end
+  hardLimit = math.floor(requestedLimit)
   clearResult()
   local focusMode = #choices == 1
   nextSeed = 0
@@ -439,9 +448,9 @@ registerForEvent("onDraw", function()
     ImGui.Text("Cyberware")
     ImGui.SameLine()
     if ImGui.Button("Refresh##items") then refresh() end
-    ImGui.SetNextItemWidth(420)
+    ImGui.SetNextItemWidth(570)
     itemFilter, _ = ImGui.InputTextWithHint("##itemSearch", "Search equipped item", itemFilter, 128)
-    ImGui.BeginChild("##itemList", 420, 600, true)
+    ImGui.BeginChild("##itemList", 570, 600, true)
     for index, item in ipairs(items) do
       if itemFilter == "" or item.label:lower():find(itemFilter:lower(), 1, true) then
         if ImGui.Selectable(item.label .. "##item" .. index, selected == index) and selected ~= index then
@@ -480,9 +489,9 @@ registerForEvent("onDraw", function()
     end
     if ImGui.Button("Clear bonuses") then choices = {}; clearResult() end
     ImGui.Separator()
-    ImGui.SetNextItemWidth(640)
+    ImGui.SetNextItemWidth(490)
     bonusFilter, _ = ImGui.InputTextWithHint("##bonusSearch", "Search bonus", bonusFilter, 128)
-    ImGui.BeginChild("##bonuses", 650, 380, true)
+    ImGui.BeginChild("##bonuses", 500, 380, true)
     local shown = 0
     for index, bonus in ipairs(bonuses) do
       if bonusAvailable(index - 1) and (bonusFilter == "" or bonus:lower():find(bonusFilter:lower(), 1, true)) then
@@ -518,9 +527,11 @@ registerForEvent("onDraw", function()
     end
     ImGui.Separator()
     ImGui.Text("Candidate roll")
-    ImGui.Text("Seeds (1000-1000000)")
+    ImGui.Text("Seeds (1-1000000)")
     ImGui.SetNextItemWidth(220)
-    seedLimitInput, _ = ImGui.InputInt("##seedLimit", seedLimitInput, 10000, 50000)
+    local newLimit, limitChanged = ImGui.InputInt("##seedLimit", seedLimitInput, 10000, 50000)
+    seedLimitInput = newLimit
+    if limitChanged then saveSettings() end
     ImGui.SameLine()
     if running then
       if ImGui.Button("Stop") then
