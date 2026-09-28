@@ -1,0 +1,230 @@
+[
+  {
+    "record": "Modifiers.ArmorRandom",
+    "stat": "ItemArmorModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealthRandom",
+    "stat": "HealthModifierHelper"
+  },
+  {
+    "record": "Modifiers.CarryCapacityRandom",
+    "stat": "CarryCapacityModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealthRegenRandom",
+    "stat": "HealthGeneralRegenRateAddModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealthRegenPercentRandom",
+    "stat": "HealthGeneralRegenRateMultModifierHelper"
+  },
+  {
+    "record": "Modifiers.StealthHitDamageBonusRandom",
+    "stat": "StealthHitDamageBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.ExplosionResistanceRandom",
+    "stat": "ExplosionResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.MeleeResistanceRandom",
+    "stat": "MeleeResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.BossResistanceRandom",
+    "stat": "BossResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.MechResistanceRandom",
+    "stat": "MechResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.QuickhackResistanceRandom",
+    "stat": "QuickhackResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.QuickhacksCooldownReductionRandom",
+    "stat": "QuickhacksCooldownReductionModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusQuickHackDamageRandom",
+    "stat": "BonusQuickHackDamageModifierHelper"
+  },
+  {
+    "record": "Modifiers.DurationBonusQuickhackRandom",
+    "stat": "DurationBonusQuickhackModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusDamageAgainstBossesRandom",
+    "stat": "BonusDamageAgainstBossesModifierHelper"
+  },
+  {
+    "record": "Modifiers.CritChanceRandom",
+    "stat": "CritChanceBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.CritDamageRandom",
+    "stat": "CritDamageBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.MitigationChanceRandom",
+    "stat": "MitigationChanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.MitigationStrengthRandom",
+    "stat": "MitigationStrengthModifierHelper"
+  },
+  {
+    "record": "Modifiers.MaxSpeedRandom",
+    "stat": "MaxSpeedModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusRicochetDamageRandom",
+    "stat": "BonusRicochetDamageModifierHelper"
+  },
+  {
+    "record": "Modifiers.BleedingApplicationRateRandom",
+    "stat": "BleedingApplicationRateModifierHelper"
+  },
+  {
+    "record": "Modifiers.PoisonedApplicationRateRandom",
+    "stat": "PoisonedApplicationRateModifierHelper"
+  },
+  {
+    "record": "Modifiers.ElectrocutedApplicationRateRandom",
+    "stat": "ElectrocutedApplicationRateModifierHelper"
+  },
+  {
+    "record": "Modifiers.BurningApplicationRateRandom",
+    "stat": "BurningApplicationRateModifierHelper"
+  },
+  {
+    "record": "Modifiers.ElectricDamageRandom",
+    "stat": "ElectricDamageModifierHelper"
+  },
+  {
+    "record": "Modifiers.ThermalDamageRandom",
+    "stat": "ThermalDamageModifierHelper"
+  },
+  {
+    "record": "Modifiers.PhysicalDamageRandom",
+    "stat": "PhysicalDamageModifierHelper"
+  },
+  {
+    "record": "Modifiers.ChemicalDamageRandom",
+    "stat": "ChemicalDamageModifierHelper"
+  },
+  {
+    "record": "Modifiers.ThermalResistanceRandom",
+    "stat": "ThermalResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.ElectricResistanceRandom",
+    "stat": "ElectricResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.ChemicalResistanceRandom",
+    "stat": "ChemicalResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.HeadshotDamageMultiplierRandom",
+    "stat": "HeadshotDamageMultiplierModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealthRegainOnKillRandom",
+    "stat": "HealthRegainOnKillModifierHelper"
+  },
+  {
+    "record": "Modifiers.MeleeDamagePercentBonusRandom",
+    "stat": "MeleeDamagePercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealingItemsEffectPercentBonusRandom",
+    "stat": "HealingItemsEffectPercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.GrenadeDamagePercentBonusRandom",
+    "stat": "GrenadeDamagePercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.ReloadSpeedPercentBonusRandom",
+    "stat": "ReloadSpeedPercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealingItemsChargesRegenMultRandom",
+    "stat": "HealingItemsChargesRegenMultModifierHelper"
+  },
+  {
+    "record": "Modifiers.RecoilPercentBonusRandom",
+    "stat": "RecoilPercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.DamageOverTimeResistanceRandom",
+    "stat": "DamageOverTimeResistanceModifierHelper"
+  },
+  {
+    "record": "Modifiers.RamOnKillRandom",
+    "stat": "RamOnKillModifierHelper"
+  },
+  {
+    "record": "Modifiers.GrenadesChargesRegenMultRandom",
+    "stat": "GrenadesChargesRegenMultModifierHelper"
+  },
+  {
+    "record": "Modifiers.ADSSpeedPercentBonusRandom",
+    "stat": "ADSSpeedPercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.VisibilityReductionRandom",
+    "stat": "VisibilityReductionModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusPercentDamageToEnemiesBelowHalfHealthRandom",
+    "stat": "BonusPercentDamageToEnemiesBelowHalfHealthModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusPercentDamageToEnemiesAtFullHealthRandom",
+    "stat": "BonusPercentDamageToEnemiesAtFullHealthModifierHelper"
+  },
+  {
+    "record": "Modifiers.PercentDamageReductionFromPoisonedEnemiesRandom",
+    "stat": "PercentDamageReductionFromPoisonedEnemiesModifierHelper"
+  },
+  {
+    "record": "Modifiers.DodgeStaminaCostReductionRandom",
+    "stat": "DodgeStaminaCostReductionModifierHelper"
+  },
+  {
+    "record": "Modifiers.ChemicalDamagePercentBonusRandom",
+    "stat": "ChemicalDamagePercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.ThermalDamagePercentBonusRandom",
+    "stat": "ThermalDamagePercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.ElectricDamagePercentBonusRandom",
+    "stat": "ElectricDamagePercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.HealOnKillingBleedingTargetRandom",
+    "stat": "HealOnKillingBleedingTargetModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusCritChanceVsElectrocutedEnemiesRandom",
+    "stat": "BonusCritChanceVsElectrocutedEnemiesModifierHelper"
+  },
+  {
+    "record": "Modifiers.BonusPercentDamageVsBurningEnemiesRandom",
+    "stat": "BonusPercentDamageVsBurningEnemiesModifierHelper"
+  },
+  {
+    "record": "Modifiers.ExplosionDamagePercentBonusRandom",
+    "stat": "ExplosionDamagePercentBonusModifierHelper"
+  },
+  {
+    "record": "Modifiers.DamageOverTimePercentBonusRandom",
+    "stat": "DamageOverTimePercentBonusModifierHelper"
+  }
+]

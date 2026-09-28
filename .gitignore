@@ -1,0 +1,7 @@
+*.zip
+*.log
+*.redscripts
+roll_cursor.json
+compile_cache/
+__pycache__/
+.DS_Store
