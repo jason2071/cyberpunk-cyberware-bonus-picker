@@ -11,7 +11,7 @@ local batch, hardLimit, seedLimitInput = 40, 100000, 100000
 local target, bestSeed, bestValues, bestScore = nil, nil, nil, -1
 local matches, minimums, maximums = 0, nil, nil
 local verifyFrames = 0
-local rankingMode = "priority"
+local rankingMode = "product"
 local status = "Load a save, then refresh equipped Cyberware."
 local currentValues, valuesChanged
 local observed, patterns, observedCount, patternCount = {}, {}, 0, 0
@@ -504,9 +504,9 @@ registerForEvent("onDraw", function()
     ImGui.SameLine()
     ImGui.Text("Rank")
     ImGui.SameLine()
-    if ImGui.RadioButton("Priority", rankingMode == "priority") then changeRankingMode("priority") end
-    ImGui.SameLine()
     if ImGui.RadioButton("Product", rankingMode == "product") then changeRankingMode("product") end
+    ImGui.SameLine()
+    if ImGui.RadioButton("Priority", rankingMode == "priority") then changeRankingMode("priority") end
     local filterLabel = analyzing and ("Filtering " .. sampledSeeds .. "/" .. sampleLimit)
       or (observedCount > 0 and ("Filter again (" .. observedCount .. " types)") or "Filter bonuses")
     if ImGui.Button(filterLabel) and not analyzing then
