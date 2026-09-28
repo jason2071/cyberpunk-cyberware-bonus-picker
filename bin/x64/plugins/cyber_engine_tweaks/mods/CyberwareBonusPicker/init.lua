@@ -11,6 +11,7 @@ local batch, windowSize, hardLimit, seedLimitInput = 40, 60000, 100000, 100000
 local target, bestSeed, bestValues, bestScore = nil, nil, nil, -1
 local matches, minimums, maximums = 0, nil, nil
 local verifyFrames, rollCursors = 0, {}
+local rankingMode = "priority"
 local status = "Load a save, then refresh equipped Cyberware."
 local currentValues, valuesChanged
 local observed, patterns, observedCount, patternCount = {}, {}, 0, 0
@@ -39,6 +40,24 @@ local function saveCursors()
   if file then file:write(encoded); file:close() end
 end
 
+local function loadSettings()
+  local file = io.open("picker_settings.json", "r")
+  if not file then return end
+  local contents = file:read("*a")
+  file:close()
+  local ok, saved = pcall(function() return json.decode(contents) end)
+  if ok and type(saved) == "table" and (saved.rankingMode == "priority" or saved.rankingMode == "product") then
+    rankingMode = saved.rankingMode
+  end
+end
+
+local function saveSettings()
+  local ok, encoded = pcall(function() return json.encode({rankingMode=rankingMode}) end)
+  if not ok then return end
+  local file = io.open("picker_settings.json", "w")
+  if file then file:write(encoded); file:close() end
+end
+
 local function englishItemName(recordID)
   local raw = tostring(recordID):gsub("^Items%.", "")
   for _, tier in ipairs({"Legendary", "Epic", "Rare", "Uncommon", "Common"}) do
@@ -56,6 +75,17 @@ local function clearResult()
   target, bestSeed, bestValues, bestScore = nil, nil, nil, -1
   matches, minimums, maximums = 0, nil, nil
   beforeFingerprint = nil
+end
+
+local function changeRankingMode(mode)
+  if running or verifying then
+    say("Stop the current operation before changing the ranking mode.")
+  elseif rankingMode ~= mode then
+    rankingMode = mode
+    clearResult()
+    saveSettings()
+    say("Ranking mode: " .. (mode == "priority" and "Priority (new)." or "Product (old)."))
+  end
 end
 
 local function refreshEquippedBonuses()
@@ -189,7 +219,7 @@ local function observeBatch()
 end
 
 local function selectionKey(item)
-  return tostring(item.area) .. ":" .. tostring(item.slot) .. ":" .. item.label .. ":" .. table.concat(choices, ",") .. ":" .. (#choices == 1 and "focus" or "priority-v1") .. ":" .. tostring(hardLimit)
+  return tostring(item.area) .. ":" .. tostring(item.slot) .. ":" .. item.label .. ":" .. table.concat(choices, ",") .. ":" .. (#choices == 1 and "focus" or rankingMode .. "-v1") .. ":" .. tostring(hardLimit)
 end
 
 local function startSearch()
@@ -208,7 +238,7 @@ local function startSearch()
     say("Search limit reached for this item and bonus set.")
     return
   end
-  target = {area=item.area, slot=item.slot, key=key, mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), choices={choices[1], choices[2], choices[3]}}
+  target = {area=item.area, slot=item.slot, key=key, mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), ranking=rankingMode, choices={choices[1], choices[2], choices[3]}}
   scanStart = nextSeed
   scanEnd = focusMode and hardLimit or math.min(nextSeed + windowSize, hardLimit)
   running = true
@@ -222,6 +252,12 @@ local function betterByPriority(values, currentBest)
     if values[i] < currentBest[i] then return false end
   end
   return false
+end
+
+local function productScore(values)
+  local product = 1
+  for _, value in ipairs(values) do product = product * value end
+  return product
 end
 
 local function resolveFocusCandidate(player)
@@ -293,8 +329,11 @@ local function scanBatch()
           maximums[i] = math.max(maximums[i], values[i])
         end
       end
-      if betterByPriority(values, bestValues) then
-        bestSeed, bestValues = seed, values
+      if target.ranking == "priority" then
+        if betterByPriority(values, bestValues) then bestSeed, bestValues = seed, values end
+      else
+        local valueScore = productScore(values)
+        if valueScore > bestScore then bestSeed, bestValues, bestScore = seed, values, valueScore end
       end
       cursor = seed + 1
     end
@@ -408,7 +447,7 @@ local function verifyApply()
   end
 end
 
-registerForEvent("onInit", function() loadCursors(); say("Ready. Open CET and refresh Cyberware.") end)
+registerForEvent("onInit", function() loadCursors(); loadSettings(); say("Ready. Open CET and refresh Cyberware.") end)
 registerForEvent("onOverlayOpen", function() overlayOpen = true end)
 registerForEvent("onOverlayClose", function() overlayOpen = false end)
 
@@ -444,7 +483,10 @@ registerForEvent("onDraw", function()
     ImGui.SameLine()
     ImGui.BeginGroup()
     ImGui.Text("Bonuses (" .. #choices .. " selected)")
-    ImGui.Text("Priority: bonus 1 highest, then bonus 2, then bonus 3.")
+    ImGui.Text("Ranking: " .. (rankingMode == "priority" and "Priority (new)" or "Product (old)"))
+    if ImGui.Button((rankingMode == "priority" and "[Selected] " or "") .. "Priority (new)") then changeRankingMode("priority") end
+    ImGui.SameLine()
+    if ImGui.Button((rankingMode == "product" and "[Selected] " or "") .. "Product (old)") then changeRankingMode("product") end
     if ImGui.Button(analyzing and "Filtering bonuses..." or "Filter compatible bonuses") and not analyzing then
       if running or verifying then
         say("Stop the current operation before filtering bonuses.")
@@ -463,7 +505,7 @@ registerForEvent("onDraw", function()
     ImGui.Separator()
     ImGui.SetNextItemWidth(640)
     bonusFilter, _ = ImGui.InputTextWithHint("##bonusSearch", "Search bonus", bonusFilter, 128)
-    ImGui.BeginChild("##bonuses", 650, 400, true)
+    ImGui.BeginChild("##bonuses", 650, 380, true)
     local shown = 0
     for index, bonus in ipairs(bonuses) do
       if bonusAvailable(index - 1) and (bonusFilter == "" or bonus:lower():find(bonusFilter:lower(), 1, true)) then
