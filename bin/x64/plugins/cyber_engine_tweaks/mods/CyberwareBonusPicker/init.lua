@@ -90,9 +90,14 @@ local function equippedMatchesSelection()
   return true
 end
 
-local function startObservation()
+local function resetObservation()
   observed, patterns, observedCount, patternCount = {}, {}, 0, 0
-  sampledSeeds, analyzing = 0, items[selected] ~= nil
+  sampledSeeds, analyzing = 0, false
+end
+
+local function startObservation()
+  resetObservation()
+  analyzing = items[selected] ~= nil
 end
 
 local function refresh()
@@ -108,7 +113,7 @@ local function refresh()
       end
     end
   end
-  startObservation()
+  resetObservation()
   refreshEquippedBonuses()
   say("Found " .. tostring(#items) .. " equipped Cyberware items.")
 end
@@ -415,7 +420,9 @@ registerForEvent("onDraw", function()
   verifyApply()
   ImGui.SetNextWindowSize(1750, 790, ImGuiCond.Always)
   if not ImGui.Begin("Cyberware Bonus Picker") then ImGui.End(); return end
+  ImGui.BeginChild("##status", 0, 44, false)
   if ImGui.TextWrapped then ImGui.TextWrapped(status) else ImGui.Text(status) end
+  ImGui.EndChild()
   if ImGui.Button("Refresh items") then refresh() end
   if #items > 0 then
     ImGui.BeginGroup()
@@ -429,8 +436,8 @@ registerForEvent("onDraw", function()
           selected, choices = index, {}
           clearResult()
           refreshEquippedBonuses()
-          startObservation()
-          say("Checking bonus groups for " .. item.label .. ".")
+          resetObservation()
+          say("Selected " .. item.label .. ". Choose bonuses or filter them first.")
         end
       end
     end
@@ -441,7 +448,15 @@ registerForEvent("onDraw", function()
     ImGui.BeginChild("##bonusPane", 650, 665, true)
     ImGui.Text("Bonuses (" .. #choices .. " selected)")
     ImGui.Text("1: maximize it. 2 or 3: require and balance selected bonuses.")
-    if analyzing then ImGui.Text("Checking this item's bonus groups: " .. sampledSeeds .. "/" .. sampleLimit) end
+    if ImGui.Button(analyzing and "Filtering bonuses..." or "Filter compatible bonuses") and not analyzing then
+      if running or verifying then
+        say("Stop the current operation before filtering bonuses.")
+      else
+        startObservation()
+      end
+    end
+    ImGui.Text(analyzing and ("Checking bonus groups: " .. sampledSeeds .. "/" .. sampleLimit)
+      or (observedCount > 0 and ("Filter ready: " .. observedCount .. " types") or "Filter optional; all bonuses shown."))
     if #choices == 3 then ImGui.Text("Untick one bonus to choose another.") end
     ImGui.Text("Selected:")
     for i = 1, 3 do
