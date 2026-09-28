@@ -231,7 +231,7 @@ public func CBPFindTwo(area: Int32, slot: Int32, a: Int32, b: Int32, startSeed: 
 }
 
 @addMethod(PlayerPuppet)
-public func CBPFindBestOne(area: Int32, slot: Int32, bonus: Int32, startSeed: Uint32, count: Int32) -> String {
+public func CBPFindBestOne(area: Int32, slot: Int32, bonus: Int32, startSeed: Uint32, count: Int32, ceiling: Float) -> String {
   if area < 0 || area >= 12 || slot < 0 || slot >= 8 || bonus < 0 || bonus >= 36 || !ItemID.IsValid(this.CBPGetItem(area, slot)) { return "-2|0"; }
   let itemID = this.CBPGetItem(area, slot);
   let record = this.CBPShardRecord(itemID);
@@ -253,7 +253,7 @@ public func CBPFindBestOne(area: Int32, slot: Int32, bonus: Int32, startSeed: Ui
       preview.GetItemPart(shard, t"AttachmentSlots.StatsShardSlot");
       let value = InnerItemData.GetStatValueByType(shard, stat);
       if value > 0.0 { matched += 1; }
-      if value > bestValue { bestValue = value; bestSeed = Cast<Int32>(seed); }
+      if value > bestValue && value < ceiling { bestValue = value; bestSeed = Cast<Int32>(seed); }
     }
     i += 1;
   }

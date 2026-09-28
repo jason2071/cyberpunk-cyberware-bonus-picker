@@ -18,6 +18,10 @@ local observed, patterns, observedCount, patternCount = {}, {}, 0, 0
 local analyzing, sampledSeeds, sampleLimit, sampleBatch = false, 0, 2000, 20
 local equippedBonuses = {}
 local beforeFingerprint = nil
+local searchKey, shownValues = nil, {}
+local shownCount = 0
+local focusCeiling = 1000000000.0
+local applyConsumed = false
 
 local function say(message)
   status = message
@@ -64,6 +68,12 @@ local function clearResult()
   target, bestSeed, bestValues, bestScore = nil, nil, nil, -1
   matches, minimums, maximums = 0, nil, nil
   beforeFingerprint = nil
+  applyConsumed = false
+end
+
+local function resetSearchHistory()
+  searchKey, shownValues, focusCeiling = nil, {}, 1000000000.0
+  shownCount = 0
 end
 
 local function refreshEquippedBonuses()
@@ -111,6 +121,7 @@ end
 local function refresh()
   local previous = items[selected]
   clearResult()
+  resetSearchHistory()
   items, selected = {}, 1
   local player = Game.GetPlayer()
   if not player then say("Load a save first."); return end
@@ -209,6 +220,7 @@ local function changeRankingMode(mode)
     rankingMode = mode
     saveSettings()
     clearResult()
+    resetSearchHistory()
     say("Ranking mode set to " .. (mode == "priority" and "Priority." or "Product."))
   end
 end
@@ -227,12 +239,23 @@ local function startSearch()
     return
   end
   hardLimit = math.floor(requestedLimit)
+  local key = table.concat({item.area, item.slot, item.label, table.concat(choices, ","), rankingMode, hardLimit}, "|")
+  if key ~= searchKey then
+    searchKey, shownValues, focusCeiling = key, {}, 1000000000.0
+    shownCount = 0
+  end
   clearResult()
   local focusMode = #choices == 1
   nextSeed = 0
   target = {area=item.area, slot=item.slot, mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), ranking=rankingMode, choices={choices[1], choices[2], choices[3]}}
   running = true
   say(focusMode and ("Finding the highest " .. bonuses[choices[1] + 1] .. " within " .. hardLimit .. " seeds.") or ("Searching vanilla rolls for " .. item.label .. "."))
+end
+
+local function valuesKey(values)
+  local parts = {}
+  for i, value in ipairs(values) do parts[i] = string.format("%.7f", value) end
+  return table.concat(parts, "|")
 end
 
 local function betterByPriority(values, currentBest)
@@ -282,7 +305,7 @@ local function scanBatch()
   local last = math.min(nextSeed + (target.mode == "focus" and 80 or batch), hardLimit)
   local ok, failure = pcall(function()
     if target.mode == "focus" then
-      local result = player:CBPFindBestOne(target.area, target.slot, target.choices[1], nextSeed, last - nextSeed)
+      local result = player:CBPFindBestOne(target.area, target.slot, target.choices[1], nextSeed, last - nextSeed, focusCeiling)
       local seedText, countText = tostring(result):match("^(%-?%d+)|(%d+)$")
       if not seedText then error("Could not read focus search result") end
       local seed = tonumber(seedText)
@@ -319,11 +342,13 @@ local function scanBatch()
           maximums[i] = math.max(maximums[i], values[i])
         end
       end
-      if target.ranking == "priority" then
-        if betterByPriority(values, bestValues) then bestSeed, bestValues = seed, values end
-      else
-        local valueScore = productScore(values)
-        if valueScore > bestScore then bestSeed, bestValues, bestScore = seed, values, valueScore end
+      if not shownValues[valuesKey(values)] then
+        if target.ranking == "priority" then
+          if betterByPriority(values, bestValues) then bestSeed, bestValues = seed, values end
+        else
+          local valueScore = productScore(values)
+          if valueScore > bestScore then bestSeed, bestValues, bestScore = seed, values, valueScore end
+        end
       end
       cursor = seed + 1
     end
@@ -340,10 +365,16 @@ local function scanBatch()
     else
       foundBonuses, foundValues = target.choices, bestValues
     end
+    if target.mode == "focus" then
+      focusCeiling = bestScore
+    else
+      shownValues[valuesKey(bestValues)] = true
+    end
+    shownCount = shownCount + 1
     local readOk, current = pcall(function() return currentValues(player) end)
     if readOk then beforeValues = current end
     if target.mode == "focus" then
-      say("Highest " .. bonuses[target.choices[1] + 1] .. " found within " .. hardLimit .. " seeds. Check the game tooltip after Apply.")
+      say("Result " .. shownCount .. ": highest remaining " .. bonuses[target.choices[1] + 1] .. " within " .. hardLimit .. " seeds. Check the game tooltip after Apply.")
     elseif target.mode == "pair" then
       say("Best of " .. tostring(matches) .. " matching two-bonus rolls within " .. hardLimit .. " seeds. Review the third bonus before Apply.")
     elseif beforeValues and valuesChanged(beforeValues, foundValues) then
@@ -353,7 +384,7 @@ local function scanBatch()
     end
   else
     running = false
-    say("No matching roll found within the search limit. Try another bonus set.")
+    say(matches > 0 and "No other distinct roll found within this seed limit." or "No matching roll found within the search limit. Try another bonus set.")
   end
 end
 
@@ -378,7 +409,7 @@ local function formatValue(index, value)
 end
 
 local function applyRoll()
-  if not foundSeed or not target or not foundBonuses or #foundBonuses ~= 3 then return end
+  if applyConsumed or not foundSeed or not target or not foundBonuses or #foundBonuses ~= 3 then return end
   local player = Game.GetPlayer()
   if not player then say("Load a save first."); return end
   local ok, result = pcall(function()
@@ -387,11 +418,12 @@ local function applyRoll()
     beforeFingerprint = equippedFingerprint()
     if player:CBPCurrentShardIsSeed(target.area, target.slot, foundSeed) then return "already" end
     local c = foundBonuses
+    applyConsumed = true
     return player:CBPApply(target.area, target.slot, c[1], c[2], c[3], foundSeed)
   end)
   if not ok then say("Apply failed: " .. tostring(result)); return end
   if result == "already" then afterValues = beforeValues; say("This exact roll is already installed."); return end
-  if not result then say("Install request was rejected. Refresh the item to check its bonuses."); refreshEquippedBonuses(); return end
+  if not result then say("Install request was rejected. Check the item, then Search for another roll."); refreshEquippedBonuses(); return end
   verifying, verifyFrames = true, 0
   say("Install request sent. Checking the equipped shard...")
 end
@@ -456,6 +488,7 @@ registerForEvent("onDraw", function()
         if ImGui.Selectable(item.label .. "##item" .. index, selected == index) and selected ~= index then
           selected = index
           clearResult()
+          resetSearchHistory()
           refreshEquippedBonuses()
           resetObservation()
           say("Selected " .. item.label .. ". Kept " .. #choices .. " selected bonus(es); find a new roll for this item.")
@@ -487,7 +520,7 @@ registerForEvent("onDraw", function()
     for i = 1, 3 do
       ImGui.Text(i .. ". " .. (choices[i] and bonuses[choices[i] + 1] or (i == 1 and "--" or "Any bonus")))
     end
-    if ImGui.Button("Clear bonuses") then choices = {}; clearResult() end
+    if ImGui.Button("Clear bonuses") then choices = {}; clearResult(); resetSearchHistory() end
     ImGui.Separator()
     ImGui.SetNextItemWidth(490)
     bonusFilter, _ = ImGui.InputTextWithHint("##bonusSearch", "Search bonus", bonusFilter, 128)
@@ -502,9 +535,11 @@ registerForEvent("onDraw", function()
           if checked and #choices < 3 then
             choices[#choices + 1] = index - 1
             clearResult()
+            resetSearchHistory()
           elseif not checked and position then
             table.remove(choices, position)
             clearResult()
+            resetSearchHistory()
           end
         end
       end
@@ -531,7 +566,7 @@ registerForEvent("onDraw", function()
     ImGui.SetNextItemWidth(220)
     local newLimit, limitChanged = ImGui.InputInt("##seedLimit", seedLimitInput, 10000, 50000)
     seedLimitInput = newLimit
-    if limitChanged then saveSettings() end
+    if limitChanged then saveSettings(); clearResult(); resetSearchHistory() end
     ImGui.SameLine()
     if running then
       if ImGui.Button("Stop") then
@@ -545,9 +580,9 @@ registerForEvent("onDraw", function()
 
     if foundSeed and foundValues then
       if target.mode == "focus" then
-        ImGui.Text("Highest focus bonus found in " .. hardLimit .. " seeds")
+        ImGui.Text("Result " .. shownCount .. " within " .. hardLimit .. " seeds")
       else
-        ImGui.Text("Best found among " .. matches .. " matching rolls")
+        ImGui.Text("Result " .. shownCount .. " among " .. matches .. " matching rolls")
       end
       ImGui.Text("Seed " .. foundSeed)
       ImGui.Separator()
@@ -564,7 +599,7 @@ registerForEvent("onDraw", function()
         if not spread and matches > 1 then ImGui.Text("All matching seeds had the same raw values.") end
       end
       ImGui.Text("Raw shard values are for ranking; check final numbers in the game tooltip.")
-      if not verifying and not afterValues and ImGui.Button("Apply roll") then applyRoll() end
+      if not verifying and not afterValues and not applyConsumed and ImGui.Button("Apply roll") then applyRoll() end
       if not verifying and beforeFingerprint and not afterValues and ImGui.Button("Recheck apply") then
         verifying, verifyFrames = true, 0
         say("Rechecking the equipped shard...")
