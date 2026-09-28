@@ -42,14 +42,31 @@ local function loadSettings()
     if type(saved.seedLimit) == "number" and saved.seedLimit == math.floor(saved.seedLimit) then
       seedLimitInput = saved.seedLimit
     end
+    if type(saved.appliedSeeds) == "table" then
+      for record, seeds in pairs(saved.appliedSeeds) do
+        if type(record) == "string" and type(seeds) == "table" then
+          local valid = {}
+          for key, applied in pairs(seeds) do
+            local seed = tonumber(key)
+            if applied == true and seed and seed >= 0 and seed <= 1000000 and seed == math.floor(seed) then
+              valid[tostring(seed)] = true
+            end
+          end
+          usedSeedsByRecord[record] = valid
+        end
+      end
+    end
   end
 end
 
 local function saveSettings()
-  local ok, encoded = pcall(function() return json.encode({rankingMode=rankingMode, seedLimit=seedLimitInput}) end)
-  if not ok then return end
+  local ok, encoded = pcall(function() return json.encode({rankingMode=rankingMode, seedLimit=seedLimitInput, appliedSeeds=usedSeedsByRecord}) end)
+  if not ok then return false end
   local file = io.open("picker_settings.json", "w")
-  if file then file:write(encoded); file:close() end
+  if not file then return false end
+  local wrote = file:write(encoded)
+  local closed = file:close()
+  return wrote ~= nil and closed ~= nil
 end
 
 local function englishItemName(recordID)
@@ -338,7 +355,7 @@ local function scanBatch()
       if seed == -2 then error("Selected item or bonuses are invalid") end
       if seed < 0 then break end
       matches = matches + 1
-      if not target.used[seed] then
+      if not target.used[tostring(seed)] then
         local values = {}
         for _, bonus in ipairs(c) do
           values[#values + 1] = player:CBPSeedBonusValue(target.area, target.slot, bonus, seed)
@@ -433,11 +450,18 @@ local function applyRoll()
     return player:CBPApply(target.area, target.slot, c[1], c[2], c[3], foundSeed)
   end)
   if not ok then say("Apply failed: " .. tostring(result)); return end
-  if result == "already" then target.used[foundSeed] = true; afterValues = beforeValues; say("This exact roll is already installed."); return end
+  if result == "already" then
+    target.used[tostring(foundSeed)] = true
+    if not saveSettings() then say("Could not save used seeds. Check picker_settings.json before restarting the game."); return end
+    afterValues = beforeValues
+    say("This exact roll is already installed.")
+    return
+  end
   if not result then say("Install request was rejected. Check the item, then Search for another roll."); refreshEquippedBonuses(); return end
-  target.used[foundSeed] = true
+  target.used[tostring(foundSeed)] = true
+  local seedsSaved = saveSettings()
   verifying, verifyFrames = true, 0
-  say("Install request sent. Checking the equipped shard...")
+  say(seedsSaved and "Install request sent. Checking the equipped shard..." or "Install request sent, but used seeds could not be saved. Check picker_settings.json.")
 end
 
 local function verifyApply()

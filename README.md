@@ -23,7 +23,7 @@ Select a Cyberware item, tick only **Electric Damage Bonus %**, and press **Sear
 
 Each result allows one **Apply roll** attempt. After applying, press **Search** to unlock Apply for the next result. If the item, selected bonuses, ranking mode, or seed limit changes, the next Search starts over at Result 1. A repeated Search scans the full seed range again, so it can take about as long as the first search. No extra reset or next-result button is needed.
 
-When applying to several Cyberware items in one game session, the picker avoids reusing an already applied seed for the same Stats Shard record. This prevents two items from referencing the same generated shard ID. The exclusion list is kept in memory only for the current session.
+When applying to several Cyberware items, the picker avoids reusing an already applied seed for the same Stats Shard record. This prevents two items from referencing the same generated shard ID. Used seeds are saved in `picker_settings.json` after each accepted Apply request and loaded when the game starts, so restarting the game does not clear the exclusion list. The list cannot identify seeds applied by older picker versions or the game's own rolls. Keep the settings file when updating the mod. A live bonus change still needs a save/reload check; seed exclusion does not guarantee the game persisted the new shard.
 
 ## Install
 
