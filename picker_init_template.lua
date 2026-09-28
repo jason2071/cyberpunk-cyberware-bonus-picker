@@ -417,11 +417,9 @@ registerForEvent("onDraw", function()
   observeBatch()
   scanBatch()
   verifyApply()
-  ImGui.SetNextWindowSize(1750, 790, ImGuiCond.Always)
+  ImGui.SetNextWindowSize(1750, 860, ImGuiCond.Always)
   if not ImGui.Begin("Cyberware Bonus Picker") then ImGui.End(); return end
-  ImGui.BeginChild("##status", 0, 44, false)
-  if ImGui.TextWrapped then ImGui.TextWrapped(status) else ImGui.Text(status) end
-  ImGui.EndChild()
+  ImGui.Text(status)
   if ImGui.Button("Refresh items") then refresh() end
   if #items > 0 then
     ImGui.BeginGroup()
@@ -444,7 +442,7 @@ registerForEvent("onDraw", function()
     ImGui.EndGroup()
 
     ImGui.SameLine()
-    ImGui.BeginChild("##bonusPane", 650, 665, true)
+    ImGui.BeginGroup()
     ImGui.Text("Bonuses (" .. #choices .. " selected)")
     ImGui.Text("Priority: bonus 1 highest, then bonus 2, then bonus 3.")
     if ImGui.Button(analyzing and "Filtering bonuses..." or "Filter compatible bonuses") and not analyzing then
@@ -463,8 +461,9 @@ registerForEvent("onDraw", function()
     end
     if ImGui.Button("Clear bonuses") then choices = {}; clearResult() end
     ImGui.Separator()
+    ImGui.SetNextItemWidth(640)
     bonusFilter, _ = ImGui.InputTextWithHint("##bonusSearch", "Search bonus", bonusFilter, 128)
-    ImGui.BeginChild("##bonuses", 0, 400, false)
+    ImGui.BeginChild("##bonuses", 650, 400, true)
     local shown = 0
     for index, bonus in ipairs(bonuses) do
       if bonusAvailable(index - 1) and (bonusFilter == "" or bonus:lower():find(bonusFilter:lower(), 1, true)) then
@@ -484,7 +483,7 @@ registerForEvent("onDraw", function()
     end
     if shown == 0 then ImGui.Text("No compatible bonuses in this sample. Untick one selection.") end
     ImGui.EndChild()
-    ImGui.EndChild()
+    ImGui.EndGroup()
 
     ImGui.SameLine()
     ImGui.BeginChild("##resultPane", 630, 665, true)
