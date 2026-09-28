@@ -22,6 +22,7 @@ local searchKey, shownValues = nil, {}
 local shownCount = 0
 local focusCeiling = 1000000000.0
 local applyConsumed = false
+local usedSeedsByRecord = {}
 
 local function say(message)
   status = message
@@ -239,6 +240,14 @@ local function startSearch()
     return
   end
   hardLimit = math.floor(requestedLimit)
+  local player = Game.GetPlayer()
+  if not player then say("Load a save first."); return end
+  local recordOk, record = pcall(function() return player:CBPShardRecordName(item.area, item.slot) end)
+  if not recordOk or not record or record == "" then say("Could not identify this item's stats shard."); return end
+  local used = usedSeedsByRecord[record]
+  if not used then used = {}; usedSeedsByRecord[record] = used end
+  local excluded = {","}
+  for seed in pairs(used) do excluded[#excluded + 1] = seed .. "," end
   local key = table.concat({item.area, item.slot, item.label, table.concat(choices, ","), rankingMode, hardLimit}, "|")
   if key ~= searchKey then
     searchKey, shownValues, focusCeiling = key, {}, 1000000000.0
@@ -247,7 +256,7 @@ local function startSearch()
   clearResult()
   local focusMode = #choices == 1
   nextSeed = 0
-  target = {area=item.area, slot=item.slot, mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), ranking=rankingMode, choices={choices[1], choices[2], choices[3]}}
+  target = {area=item.area, slot=item.slot, record=record, used=used, excluded=table.concat(excluded), mode=focusMode and "focus" or (#choices == 2 and "pair" or "triple"), ranking=rankingMode, choices={choices[1], choices[2], choices[3]}}
   running = true
   say(focusMode and ("Finding the highest " .. bonuses[choices[1] + 1] .. " within " .. hardLimit .. " seeds.") or ("Searching vanilla rolls for " .. item.label .. "."))
 end
@@ -305,7 +314,7 @@ local function scanBatch()
   local last = math.min(nextSeed + (target.mode == "focus" and 80 or batch), hardLimit)
   local ok, failure = pcall(function()
     if target.mode == "focus" then
-      local result = player:CBPFindBestOne(target.area, target.slot, target.choices[1], nextSeed, last - nextSeed, focusCeiling)
+      local result = player:CBPFindBestOne(target.area, target.slot, target.choices[1], nextSeed, last - nextSeed, focusCeiling, target.excluded)
       local seedText, countText = tostring(result):match("^(%-?%d+)|(%d+)$")
       if not seedText then error("Could not read focus search result") end
       local seed = tonumber(seedText)
@@ -328,26 +337,28 @@ local function scanBatch()
       end
       if seed == -2 then error("Selected item or bonuses are invalid") end
       if seed < 0 then break end
-      local values = {}
-      for _, bonus in ipairs(c) do
-        values[#values + 1] = player:CBPSeedBonusValue(target.area, target.slot, bonus, seed)
-      end
       matches = matches + 1
-      if not minimums then
-        minimums, maximums = {}, {}
-        for i = 1, #values do minimums[i], maximums[i] = values[i], values[i] end
-      else
-        for i = 1, #values do
-          minimums[i] = math.min(minimums[i], values[i])
-          maximums[i] = math.max(maximums[i], values[i])
+      if not target.used[seed] then
+        local values = {}
+        for _, bonus in ipairs(c) do
+          values[#values + 1] = player:CBPSeedBonusValue(target.area, target.slot, bonus, seed)
         end
-      end
-      if not shownValues[valuesKey(values)] then
-        if target.ranking == "priority" then
-          if betterByPriority(values, bestValues) then bestSeed, bestValues = seed, values end
+        if not minimums then
+          minimums, maximums = {}, {}
+          for i = 1, #values do minimums[i], maximums[i] = values[i], values[i] end
         else
-          local valueScore = productScore(values)
-          if valueScore > bestScore then bestSeed, bestValues, bestScore = seed, values, valueScore end
+          for i = 1, #values do
+            minimums[i] = math.min(minimums[i], values[i])
+            maximums[i] = math.max(maximums[i], values[i])
+          end
+        end
+        if not shownValues[valuesKey(values)] then
+          if target.ranking == "priority" then
+            if betterByPriority(values, bestValues) then bestSeed, bestValues = seed, values end
+          else
+            local valueScore = productScore(values)
+            if valueScore > bestScore then bestSeed, bestValues, bestScore = seed, values, valueScore end
+          end
         end
       end
       cursor = seed + 1
@@ -422,8 +433,9 @@ local function applyRoll()
     return player:CBPApply(target.area, target.slot, c[1], c[2], c[3], foundSeed)
   end)
   if not ok then say("Apply failed: " .. tostring(result)); return end
-  if result == "already" then afterValues = beforeValues; say("This exact roll is already installed."); return end
+  if result == "already" then target.used[foundSeed] = true; afterValues = beforeValues; say("This exact roll is already installed."); return end
   if not result then say("Install request was rejected. Check the item, then Search for another roll."); refreshEquippedBonuses(); return end
+  target.used[foundSeed] = true
   verifying, verifyFrames = true, 0
   say("Install request sent. Checking the equipped shard...")
 end
@@ -450,7 +462,7 @@ local function verifyApply()
     refreshEquippedBonuses()
     if beforeFingerprint and equippedFingerprint() ~= beforeFingerprint and equippedMatchesSelection() then
       verifying, afterValues = false, values
-      say("Equipped bonuses changed to the selected types. Exact seed ID was not confirmed; check the game tooltip.")
+      say("Live bonuses changed, but installation is unconfirmed. Test one item after save and reload before applying more.")
       return
     end
   end

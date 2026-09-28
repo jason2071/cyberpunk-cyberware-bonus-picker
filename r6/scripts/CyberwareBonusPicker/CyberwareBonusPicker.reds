@@ -92,6 +92,13 @@ public func CBPShardRecord(itemID: ItemID) -> TweakDBID {
 }
 
 @addMethod(PlayerPuppet)
+public func CBPShardRecordName(area: Int32, slot: Int32) -> String {
+  let itemID = this.CBPGetItem(area, slot);
+  if !ItemID.IsValid(itemID) { return ""; }
+  return TDBID.ToStringDEBUG(this.CBPShardRecord(itemID));
+}
+
+@addMethod(PlayerPuppet)
 public func CBPValid(area: Int32, slot: Int32, a: Int32, b: Int32, c: Int32) -> Bool {
   return area >= 0 && area < 12 && slot >= 0 && slot < 8
     && a >= 0 && a < 36 && b >= 0 && b < 36 && c >= 0 && c < 36
@@ -231,7 +238,7 @@ public func CBPFindTwo(area: Int32, slot: Int32, a: Int32, b: Int32, startSeed: 
 }
 
 @addMethod(PlayerPuppet)
-public func CBPFindBestOne(area: Int32, slot: Int32, bonus: Int32, startSeed: Uint32, count: Int32, ceiling: Float) -> String {
+public func CBPFindBestOne(area: Int32, slot: Int32, bonus: Int32, startSeed: Uint32, count: Int32, ceiling: Float, excluded: String) -> String {
   if area < 0 || area >= 12 || slot < 0 || slot >= 8 || bonus < 0 || bonus >= 36 || !ItemID.IsValid(this.CBPGetItem(area, slot)) { return "-2|0"; }
   let itemID = this.CBPGetItem(area, slot);
   let record = this.CBPShardRecord(itemID);
@@ -253,11 +260,16 @@ public func CBPFindBestOne(area: Int32, slot: Int32, bonus: Int32, startSeed: Ui
       preview.GetItemPart(shard, t"AttachmentSlots.StatsShardSlot");
       let value = InnerItemData.GetStatValueByType(shard, stat);
       if value > 0.0 { matched += 1; }
-      if value > bestValue && value < ceiling { bestValue = value; bestSeed = Cast<Int32>(seed); }
+      if value > bestValue && value < ceiling && !StrContains(excluded, "," + ToString(seed) + ",") { bestValue = value; bestSeed = Cast<Int32>(seed); }
     }
     i += 1;
   }
   return ToString(bestSeed) + "|" + ToString(matched);
+}
+
+@addMethod(ItemModificationSystem)
+public func CBPInstallShard(owner: ref<GameObject>, itemID: ItemID, shardID: ItemID) -> Bool {
+  return this.InstallItemPart(owner, itemID, shardID, t"AttachmentSlots.StatsShardSlot");
 }
 
 @addMethod(PlayerPuppet)
@@ -269,12 +281,7 @@ public func CBPApply(area: Int32, slot: Int32, a: Int32, b: Int32, c: Int32, see
   let shardID = ItemID.CreateFromSeedWithOffset(record, seed, 0);
   let ts = GameInstance.GetTransactionSystem(this.GetGame());
   ts.GiveItem(this, shardID, 1);
-  if !ts.ForcePartInSlot(this, itemID, shardID, t"AttachmentSlots.StatsShardSlot") { return false; }
-  let request = new PartInstallRequest();
-  request.owner = this;
-  request.itemID = itemID;
-  request.partID = shardID;
-  GameInstance.GetScriptableSystemsContainer(this.GetGame()).Get(n"EquipmentSystem").QueueRequest(request);
-  GameInstance.GetScriptableSystemsContainer(this.GetGame()).Get(n"UIInventoryScriptableSystem").QueueRequest(request);
-  return true;
+  let mods = GameInstance.GetScriptableSystemsContainer(this.GetGame()).Get(n"ItemModificationSystem") as ItemModificationSystem;
+  if !IsDefined(mods) { return false; }
+  return mods.CBPInstallShard(this, itemID, shardID);
 }
