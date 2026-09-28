@@ -17,6 +17,12 @@ Choose one, two, or three vanilla secondary bonus types on one equipped Cyberwar
 5. Check **Current item** for the bonus types on the equipped shard. Review the candidate's raw shard values, then press **Apply roll**. Apply can be pressed once for each result; press Search again to get another candidate and unlock Apply. Raw values are shown without a percent sign because they are used only to rank seeds; they are not the final numbers shown in the game tooltip. The picker confirms either the exact seed ID or a change to the three selected bonus types and distinguishes these results in its status.
 6. Save and reload, then check the displayed bonuses in the game. Search history is kept only until the mod is reloaded or the game closes.
 
+### Example: find Electric Damage
+
+Select a Cyberware item, tick only **Electric Damage Bonus %**, and press **Search**. Result 1 has the highest raw Electric Damage value found in the chosen seed range. If you want another roll, press the same **Search** button again; Result 2 has the next lower distinct raw Electric Damage value. You do not need to change the seed limit or add another bonus. Check the in-game tooltip for the displayed percentage before saving.
+
+Each result allows one **Apply roll** attempt. After applying, press **Search** to unlock Apply for the next result. If the item, selected bonuses, ranking mode, or seed limit changes, the next Search starts over at Result 1. A repeated Search scans the full seed range again, so it can take about as long as the first search. No extra reset or next-result button is needed.
+
 ## Install
 
 Install the ZIP with Vortex, enable it, deploy mods, and restart the game. The ZIP places `bin` and `r6` at the game root. This CET version replaces older versions named `CyberwareBonusPicker`; install only one version.
