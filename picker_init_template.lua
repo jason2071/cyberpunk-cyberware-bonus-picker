@@ -189,10 +189,7 @@ local function observeBatch()
 end
 
 local function selectionKey(item)
-  local sorted = {}
-  for _, value in ipairs(choices) do sorted[#sorted + 1] = value end
-  table.sort(sorted)
-  return tostring(item.area) .. ":" .. tostring(item.slot) .. ":" .. item.label .. ":" .. table.concat(sorted, ",") .. ":" .. (#choices == 1 and "focus" or "best") .. ":" .. tostring(hardLimit)
+  return tostring(item.area) .. ":" .. tostring(item.slot) .. ":" .. item.label .. ":" .. table.concat(choices, ",") .. ":" .. (#choices == 1 and "focus" or "priority-v1") .. ":" .. tostring(hardLimit)
 end
 
 local function startSearch()
@@ -218,10 +215,13 @@ local function startSearch()
   say(focusMode and ("Finding the highest " .. bonuses[choices[1] + 1] .. " within " .. hardLimit .. " seeds.") or ("Searching vanilla rolls for " .. item.label .. "."))
 end
 
-local function score(values)
-  local product = 1
-  for _, value in ipairs(values) do product = product * value end
-  return product
+local function betterByPriority(values, currentBest)
+  if not currentBest then return true end
+  for i = 1, #values do
+    if values[i] > currentBest[i] then return true end
+    if values[i] < currentBest[i] then return false end
+  end
+  return false
 end
 
 local function resolveFocusCandidate(player)
@@ -293,9 +293,8 @@ local function scanBatch()
           maximums[i] = math.max(maximums[i], values[i])
         end
       end
-      local valueScore = score(values)
-      if valueScore > bestScore then
-        bestSeed, bestValues, bestScore = seed, values, valueScore
+      if betterByPriority(values, bestValues) then
+        bestSeed, bestValues = seed, values
       end
       cursor = seed + 1
     end
@@ -447,7 +446,7 @@ registerForEvent("onDraw", function()
     ImGui.SameLine()
     ImGui.BeginChild("##bonusPane", 650, 665, true)
     ImGui.Text("Bonuses (" .. #choices .. " selected)")
-    ImGui.Text("1: maximize it. 2 or 3: require and balance selected bonuses.")
+    ImGui.Text("Priority: bonus 1 highest, then bonus 2, then bonus 3.")
     if ImGui.Button(analyzing and "Filtering bonuses..." or "Filter compatible bonuses") and not analyzing then
       if running or verifying then
         say("Stop the current operation before filtering bonuses.")
